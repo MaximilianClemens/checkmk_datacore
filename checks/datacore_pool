@@ -91,10 +91,10 @@ def check_datacore_pool(item, params, info):
     perf_data.append(('bytesavailable', pool['BytesAvailable'], None, None, None, None))
     perf_data.append(('bytesinreclamation', pool['BytesInReclamation'], None, None, None, None))
     perf_data.append(('bytesoversubscribed', pool['BytesOverSubscribed'], None, None, None, None))
-    perf_data.append(('maxwritetime', pool['MaxWriteTime'], None, None, None, None))
-    perf_data.append(('maxreadtime', pool['MaxReadTime'], None, None, None, None))
-    perf_data.append(('totalbyteswritten', pool['TotalBytesWritten'], None, None, None, None))
-    perf_data.append(('totalbytesread', pool['TotalBytesRead'], None, None, None, None))
+    perf_data.append(('maxwritetime', float(pool['MaxWriteTime'])/1000, None, None, None, None))
+    perf_data.append(('maxreadtime', float(pool['MaxReadTime'])/1000, None, None, None, None))
+    #perf_data.append(('totalbyteswritten', pool['TotalBytesWritten'], None, None, None, None))
+    #perf_data.append(('totalbytesread', pool['TotalBytesRead'], None, None, None, None))
 
     return (check_status, ', '.join(msg_data), perf_data)
 

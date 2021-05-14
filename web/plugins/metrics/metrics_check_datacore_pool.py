@@ -43,17 +43,18 @@ metric_info["maxreadtime"] = {
     "unit" : "s",
 }
 
-metric_info["totalbyteswritten"] = {
-    "title" : _("totalbyteswritten"),
-    "color": "#4db7b8",
-    "unit" : "bytes/s",
-}
+#metric_info["totalbyteswritten"] = {
+#    "title" : _("totalbyteswritten"),
+#    "color": "#4db7b8",
+#    "unit" : "bytes/s",
+#}
+#
+#metric_info["totalbytesread"] = {
+#    "title" : _("totalbytesread"),
+#    "color": "#47a85b",
+#    "unit" : "bytes/s",
+#}
 
-metric_info["totalbytesread"] = {
-    "title" : _("totalbytesread"),
-    "color": "#47a85b",
-    "unit" : "bytes/s",
-}
 
 graph_info["datacore_pool_usage"] = {
     "title"   : _("Pool Usage"),
@@ -70,16 +71,18 @@ graph_info["datacore_pool_usage"] = {
 
 graph_info["datacore_pool_latency"] = {
     "title"   : _("Pool Latency"),
+    #"legend_scale": m,
+    #"legend_precision": 3,
     "metrics" : [
         ( "maxwritetime", "area" ),
         ( "maxreadtime", "-area" )
     ],
 }
 
-graph_info["datacore_pool_io"] = {
-    "title"   : _("Pool IO"),
-    "metrics" : [
-        ( "totalbyteswritten", "area" ),
-        ( "totalbytesread", "-area" )
-    ],
-}
+#graph_info["datacore_pool_io"] = {
+#    "title"   : _("Pool IO"),
+#    "metrics" : [
+#        ( "totalbyteswritten", "area" ),
+#        ( "totalbytesread", "-area" )
+#    ],
+#}

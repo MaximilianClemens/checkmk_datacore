@@ -114,6 +114,28 @@ def check_datacore(args):
                 sys.stdout.write('MaxWriteTime: %s\n' % perf_response2[0]['MaxWriteTime'])
                 sys.stdout.write('MaxReadTime: %s\n' % perf_response2[0]['MaxReadTime'])
                 break
+
+    response3 = get_request('ports', args)
+    sys.stdout.write('<<<datacore_port>>>\n')
+    for port in response3:
+        sys.stdout.write('Caption=%s\n' % port['Caption'])
+        sys.stdout.write('PortName: %s\n' % port['PortName'])
+        sys.stdout.write('PortMode: %s\n' % port['PortMode'])
+        sys.stdout.write('PortType: %s\n' % port['PortType'])
+        sys.stdout.write('Connected: %s\n' % port['Connected'])
+        #sys.stdout.write('PresenceStatus: %s\n' % port['PresenceStatus'])
+        perf_response3 = None
+        perf_response3 = get_request('performance/%s' % port['Id'], args)
+        #print (perf_response3)
+        for i in range(0, 3):
+            time.sleep(i*0.1)
+            if perf_response3[0]['CollectionTime'] == '/Date(253402300799999)/':
+                perf_response3 = get_request('performance/%s' % pool['Id'], args)
+            else:
+                for key in ('InitiatorMaxReadTime', 'InitiatorMaxWriteTime', 'TargetMaxReadTime', 'TargetMaxWriteTime'):
+                    if key in perf_response3[0].keys():
+                        sys.stdout.write('%s: %s\n' % (key, perf_response3[0][key]))
+                break
         
 if __name__ == '__main__':
     args = parse_args()

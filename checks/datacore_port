@@ -1,0 +1,93 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+
+factory_settings['datacore_port_default_levels'] = {}
+
+type_portmodus = {
+    0: '0',
+    1: '1',
+    2: '2',
+    3: '3',
+    3: '4'
+}
+
+type_porttype = {
+    0: '0',
+    1: '1',
+    2: '2',
+    3: '3',
+    4: '4',
+}
+
+def nested_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            d[k] = nested_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+def parse_datacore_port(info):
+    ports = {}
+    current_port_caption = None
+
+    for line in info:
+        fullline = ' '.join(line)
+        if fullline.startswith('Caption='):
+            current_port_caption = fullline.split('=')[1]
+            ports[current_port_caption] = {}
+            continue
+        else:
+            key = fullline.split(': ')[0]
+            value = fullline.split(': ')[1]
+            ports[current_port_caption][key] = value
+
+    return ports
+
+def inventory_datacore_port(info):
+    ports = parse_datacore_port(info)
+
+    for port_caption, port in ports.items():
+        yield (port_caption, None)
+
+def check_datacore_port(item, params, info):
+    ports = parse_datacore_port(info)
+
+    pparams = {}
+    pparams = nested_update(pparams, factory_settings['datacore_port_default_levels'])
+    if params:
+        pparams = nested_update(pparams, params)
+
+    port = None
+    msg_data = []
+    perf_data = []
+    check_status = 0
+
+    # Find current port
+    for port_caption, port_n in ports.items():
+        if item.startswith(port_caption):
+            port = port_n
+            break
+    
+    if not port:
+        return 3, 'PORT NOT FOUND'
+
+    msg_data.append('PortName: {}'.format(port['PortName']))
+    msg_data.append('Port-Modus: {}'.format(type_portmodus[int(port['PortMode'])]))
+    msg_data.append('Port-Typ: {}'.format(type_porttype[int(port['PortType'])]))
+    msg_data.append('Connected: {}'.format(port['Connected']))
+
+    for key in ('InitiatorMaxReadTime', 'InitiatorMaxWriteTime', 'TargetMaxReadTime', 'TargetMaxWriteTime'):
+        if key in port.keys():
+            perf_data.append((key.lower(), float(port[key])/1000, None, None, None, None))
+
+    return (check_status, ', '.join(msg_data), perf_data)
+
+check_info['datacore_port'] = {
+    'inventory_function'       : inventory_datacore_port,
+    'check_function'           : check_datacore_port,
+    'service_description'      : 'DataCorePort %s',
+    'group'                    : 'datacore_port',
+    'default_levels_variable'  : 'datacore_port_default_levels',
+    'has_perfdata'             : True,
+}
