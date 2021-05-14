@@ -1,0 +1,128 @@
+#!/usr/bin/python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+
+import argparse
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import sys
+import requests
+import traceback
+import base64
+import ssl
+import json
+import time
+
+
+import logging
+
+#import http.client
+#http.client.HTTPConnection.debuglevel = 1
+#
+#logging.basicConfig()
+#logging.getLogger().setLevel(logging.DEBUG)
+#requests_log = logging.getLogger("requests.packages.urllib3")
+#requests_log.setLevel(logging.DEBUG)
+#requests_log.propagate = True
+
+session = requests.session()
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='DataCore Agent for checkmk')
+    parser.add_argument('host', help='Host name or IP address of your DataCore RestAPI Host')
+
+    parser.add_argument('--debug', action='store_true', default=False,
+        help='Debug mode: let Python exceptions come through')
+
+    parser.add_argument('username')
+    parser.add_argument('password')
+    parser.add_argument('--server', nargs='?')
+    parser.add_argument('--port', nargs='?', type=int, default=443)
+    parser.add_argument('--ignoressl', action='store_true', default=False)
+    parser.add_argument('--protocol', nargs='?', choices=['http', 'https'], default='https')
+    args = parser.parse_args()
+
+    return args
+
+def get_request(target, args):
+    #time.sleep(0.01) # request throttleing
+    global session
+
+    url = '%s://%s:%s/RestService/rest.svc/1.0/%s' % (args.protocol, args.host, args.port, target)
+    #https://qh5mhebkdblq8cr5.myfritz.net:8081/RestService/rest.svc/1.0/servers
+    #print (url)
+    headers = {
+       'ServerHost': args.host,
+       'Authorization': 'Basic %s %s' %(args.username, args.password),
+       'Connection':'close'
+    }
+   
+    if args.server:
+        headers['ServerHost'] = args.server
+
+    #print(requests.auth.HTTPBasicAuth(args.username, args.password))
+    # auth=requests.auth.HTTPBasicAuth(args.username, args.password)
+    response = session.get(url, headers=headers, verify=False, timeout=1)
+
+    return response.json()
+
+def check_datacore(args):
+    response1 = get_request('servers', args)
+    
+    sys.stdout.write('<<<datacore_server>>>\n')
+    #print(response1)
+    for server in response1:
+        #if 'type' in server.keys():
+        #    continue
+        sys.stdout.write('Caption=%s\n' % server['Caption'])
+        sys.stdout.write('State: %s\n' % server['State'])
+        sys.stdout.write('CacheState: %s\n' % server['CacheState'])
+        sys.stdout.write('PowerState: %s\n' % server['PowerState'])
+        sys.stdout.write('IsLicensed: %s\n' % server['IsLicensed'])
+        sys.stdout.write('LicenseExceeded: %s\n' % server['LicenseExceeded'])
+        sys.stdout.write('ProductVersion: %s\n' % server['ProductVersion'])
+        perf_response1 = None
+        perf_response1 = get_request('performance/%s' % server['Id'], args)
+        sys.stdout.write('TotalBytesWritten: %s\n' % perf_response1[0]['TotalBytesWritten'])
+        sys.stdout.write('TotalBytesRead: %s\n' % perf_response1[0]['TotalBytesRead'])
+        sys.stdout.write('PollerLoad: %s\n' % perf_response1[0]['PollerLoad'])
+
+    response2 = get_request('pools', args)
+    
+    sys.stdout.write('<<<datacore_pool>>>\n')
+    for pool in response2:
+        sys.stdout.write('Caption=%s\n' % pool['Caption'])
+        sys.stdout.write('PresenceStatus: %s\n' % pool['PresenceStatus'])
+        sys.stdout.write('PoolStatus: %s\n' % pool['PoolStatus'])
+        sys.stdout.write('PoolMode: %s\n' % pool['PoolMode'])
+        sys.stdout.write('InSharedMode: %s\n' % pool['InSharedMode'])
+        sys.stdout.write('SMPAApproved: %s\n' % pool['SMPAApproved'])
+        perf_response2 = None
+        perf_response2 = get_request('performance/%s' % pool['Id'], args)
+        #print (perf_response2)
+        for i in range(0, 11):
+            time.sleep(i*0.1)
+            if perf_response2[0]['BytesAllocated'] == 0:
+                perf_response2 = get_request('performance/%s' % pool['Id'], args)
+            else:
+                sys.stdout.write('BytesAllocated: %s\n' % perf_response2[0]['BytesAllocated'])
+                sys.stdout.write('BytesTotal: %s\n' % perf_response2[0]['BytesTotal'])
+                sys.stdout.write('BytesAvailable: %s\n' % perf_response2[0]['BytesAvailable'])
+                sys.stdout.write('BytesInReclamation: %s\n' % perf_response2[0]['BytesInReclamation'])
+                sys.stdout.write('BytesOverSubscribed: %s\n' % perf_response2[0]['BytesOverSubscribed'])
+                sys.stdout.write('TotalBytesRead: %s\n' % perf_response2[0]['TotalBytesRead'])
+                sys.stdout.write('TotalBytesWritten: %s\n' % perf_response2[0]['TotalBytesWritten'])
+                sys.stdout.write('MaxWriteTime: %s\n' % perf_response2[0]['MaxWriteTime'])
+                sys.stdout.write('MaxReadTime: %s\n' % perf_response2[0]['MaxReadTime'])
+                break
+        
+if __name__ == '__main__':
+    args = parse_args()
+
+    try:
+        check_datacore(args)
+    except:
+        if args.debug:
+            raise
+        sys.stderr.write('datacore\n %s\n' % traceback.format_exc())
+        sys.exit(2)
+

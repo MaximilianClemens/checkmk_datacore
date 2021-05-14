@@ -1,0 +1,10 @@
+title: DataCore Sansymphony
+agents: datacore
+catalog: hw/network/avm
+license: GPL
+distribution: check_mk
+description:
+ comes with a new agent for DataCore
+
+inventory:
+ datacore

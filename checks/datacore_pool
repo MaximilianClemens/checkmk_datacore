@@ -1,0 +1,108 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+
+factory_settings['datacore_pool_default_levels'] = {}
+
+type_presencestatus = {
+    0: 'Unknown',
+    1: 'Present',
+    2: 'NotPresent'
+}
+
+type_poolstatus = {
+    0: 'Running',
+    1: 'Initializing',
+    4: 'MissingDisks',
+    5: 'Foreign',
+    6: 'Removing',
+    7: 'Offline',
+    8: 'Unknown',
+    9: 'FailedRedundancy',
+    10: 'Suspended'
+}
+
+type_poolmode = {
+    0: 'ReadOnly',
+    1: 'ReadWrite',
+    2: 'Unkown'
+}
+
+def nested_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            d[k] = nested_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+def parse_datacore_pool(info):
+    pools = {}
+    current_pool_caption = None
+
+    for line in info:
+        fullline = ' '.join(line)
+        if fullline.startswith('Caption='):
+            current_pool_caption = fullline.split('=')[1]
+            pools[current_pool_caption] = {}
+            continue
+        else:
+            key = fullline.split(': ')[0]
+            value = fullline.split(': ')[1]
+            pools[current_pool_caption][key] = value
+
+    return pools
+
+def inventory_datacore_pool(info):
+    pools = parse_datacore_pool(info)
+
+    for pool_caption, pool in pools.items():
+        yield (pool_caption, None)
+
+def check_datacore_pool(item, params, info):
+    pools = parse_datacore_pool(info)
+
+    pparams = {}
+    pparams = nested_update(pparams, factory_settings['datacore_pool_default_levels'])
+    if params:
+        pparams = nested_update(pparams, params)
+
+    pool = None
+    msg_data = []
+    perf_data = []
+    check_status = 0
+
+    # Find current pool
+    for pool_caption, pool_n in pools.items():
+        if item.startswith(pool_caption):
+            pool = pool_n
+            break
+    
+    if not pool:
+        return 3, 'POOL NOT FOUND'
+
+    msg_data.append('Pool-Status: {}'.format(type_poolstatus[int(pool['PoolStatus'])]))
+    msg_data.append('Presence: {}'.format(type_presencestatus[int(pool['PresenceStatus'])]))
+    msg_data.append('Mode: {}'.format(type_poolmode[int(pool['PoolMode'])]))
+    #InSharedMode
+    #SMPAApproved
+
+    perf_data.append(('bytesallocated', pool['BytesAllocated'], None, None, None, None))
+    perf_data.append(('bytestotal', pool['BytesTotal'], None, None, None, None))
+    perf_data.append(('bytesavailable', pool['BytesAvailable'], None, None, None, None))
+    perf_data.append(('bytesinreclamation', pool['BytesInReclamation'], None, None, None, None))
+    perf_data.append(('bytesoversubscribed', pool['BytesOverSubscribed'], None, None, None, None))
+    perf_data.append(('maxwritetime', pool['MaxWriteTime'], None, None, None, None))
+    perf_data.append(('maxreadtime', pool['MaxReadTime'], None, None, None, None))
+    perf_data.append(('totalbyteswritten', pool['TotalBytesWritten'], None, None, None, None))
+    perf_data.append(('totalbytesread', pool['TotalBytesRead'], None, None, None, None))
+
+    return (check_status, ', '.join(msg_data), perf_data)
+
+check_info['datacore_pool'] = {
+    'inventory_function'       : inventory_datacore_pool,
+    'check_function'           : check_datacore_pool,
+    'service_description'      : 'DataCorePool %s',
+    'group'                    : 'datacore_pool',
+    'default_levels_variable'  : 'datacore_pool_default_levels',
+    'has_perfdata'             : True,
+}

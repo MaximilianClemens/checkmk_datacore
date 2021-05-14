@@ -1,0 +1,103 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+
+factory_settings['datacore_server_default_levels'] = {}
+
+type_serverstate = {
+    0: 'NotPresent',
+    1: 'Offline',
+    2: 'Online',
+    3: 'Failed'
+}
+
+type_powerstate = {
+    0: 'Unknown',
+    1: 'ACOffline',
+    2: 'ACOnline',
+    3: 'BatteryLow'
+}
+
+type_cachestate = {
+    0: 'Unknown',
+    1: 'WritethruGlobal',
+    2: 'WritebackGlobal',
+}
+
+def nested_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            d[k] = nested_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+def parse_datacore_server(info):
+    servers = {}
+    current_server_caption = None
+
+    for line in info:
+        fullline = ' '.join(line)
+        if fullline.startswith('Caption='):
+            current_server_caption = fullline.split('=')[1]
+            servers[current_server_caption] = {}
+            continue
+        else:
+            key = fullline.split(': ')[0]
+            value = fullline.split(': ')[1]
+            servers[current_server_caption][key] = value
+
+    return servers
+
+def inventory_datacore_server(info):
+    servers = parse_datacore_server(info)
+
+    for server_caption, server in servers.items():
+        yield (server_caption, None)
+
+def check_datacore_server(item, params, info):
+    servers = parse_datacore_server(info)
+
+    pparams = {}
+    pparams = nested_update(pparams, factory_settings['datacore_server_default_levels'])
+    if params:
+        pparams = nested_update(pparams, params)
+
+    server = None
+    msg_data = []
+    perf_data = []
+    check_status = 0
+
+    # Find current server
+    for server_caption, server_n in servers.items():
+        if item.startswith(server_caption):
+            server = server_n
+            break
+
+    if not server:
+        return 3, 'SERVER NOT FOUND'
+    
+    msg_data.append('Version: {}'.format(server['ProductVersion']))
+    msg_data.append('Server-Status: {}'.format(type_serverstate[int(server['State'])]))
+    msg_data.append('Cache-Status: {}'.format(type_cachestate[int(server['CacheState'])]))
+    msg_data.append('Power-Status: {}'.format(type_powerstate[int(server['PowerState'])]))
+
+    if server['IsLicensed'] == 'False':
+        msg_data.append('Server not Licensed')
+    else:
+        if server['LicenseExceeded'] == 'True':
+            msg_data.append('License exceeded')
+
+    perf_data.append(('totalbyteswritten', server['TotalBytesWritten']))
+    perf_data.append(('totalbytesread', server['TotalBytesRead']))
+    perf_data.append(('pollerload', int(server['PollerLoad'])))
+
+    return check_status, ', '.join(msg_data), perf_data
+
+check_info['datacore_server'] = {
+    'inventory_function'       : inventory_datacore_server,
+    'check_function'           : check_datacore_server,
+    'service_description'      : 'DataCoreServer %s',
+    'group'                    : 'datacore_server',
+    'default_levels_variable'  : 'datacore_server_default_levels',
+    'has_perfdata'             : True,
+}
