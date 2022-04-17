@@ -48,7 +48,6 @@ def get_request(target, args):
     global session
 
     url = '%s://%s:%s/RestService/rest.svc/1.0/%s' % (args.protocol, args.host, args.port, target)
-    #https://qh5mhebkdblq8cr5.myfritz.net:8081/RestService/rest.svc/1.0/servers
     #print (url)
     headers = {
        'ServerHost': args.host,
